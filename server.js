@@ -52,7 +52,6 @@ var login = {
 }
 
 var logout = {
-  "username": "user name of the user",
   "token": "authentication token"
 }
 
@@ -165,30 +164,41 @@ router.route("/accounts/register")
   });
 router.route("/accounts/deactivate/:user_id")
   .delete(function(req, res){
+    if(!req.body.token){
+      res.status(400).json({"message": "Request format error", "required":{"token": "token for the logged in user"}});
+      return;
+    }
 
-    var user_id = req.params.user_id;
-    var deactivateUser = "UPDATE users SET active = 0 WHERE user_id = ?";
-    var parameters = [user_id];
-    con.query(deactivateUser, parameters, function(err, data){
-      if(err){
-        var response = {
-          "message": "Cannot deactivate user",
-          "error": err
-        };
-        res.status(400).json(response);
+    getPermission(req.body.token).then(function(value){
+      if(value == 0){
+        res.status(400).json({"message": "Not Aurthorized for this request"});
+        return;
       }
-      else{
-        // TODO: Add checks whether a removed user already existed
-        var response = {
-          "message": "User removed"
-        };
-        res.status(200).json(response);
-      }
+      var user_id = req.params.user_id;
+      var deactivateUser = "UPDATE users SET active = 0 WHERE user_id = ?";
+      var parameters = [user_id];
+      con.query(deactivateUser, parameters, function(err, data){
+        if(err){
+          var response = {
+            "message": "Cannot deactivate user",
+            "error": err
+          };
+          res.status(400).json(response);
+        }
+        else{
+          // TODO: Add checks whether a removed user already existed
+          var response = {
+            "message": "User removed"
+          };
+          res.status(200).json(response);
+        }
+      });
+    }).catch(function(value){
+      res.status(400).json({"message": "No user with this this token is loggedIn"});
     });
   });
 
-
-  router.route("/accounts/deactivate/")
+router.route("/accounts/deactivate/")
     .delete(function(req, res){
       var user_id = req.query.user_id;
       var deactivateUser = "UPDATE users SET active = 0 WHERE user_id = ?";
@@ -213,24 +223,36 @@ router.route("/accounts/deactivate/:user_id")
 
 router.route("/accounts/activate/:user_id")
   .post(function(req, res){
-    var user_id = req.params.user_id;
-    var deactivateUser = "UPDATE users SET active = 1 WHERE user_id = ?";
-    var parameters = [user_id];
-    con.query(deactivateUser, parameters, function(err, data){
-      if(err){
-        var response = {
-          "message": "Cannot activate user",
-          "error": err
-        };
-        res.status(400).json(response);
+    if(!req.body.token){
+      res.status(400).json({"message": "Request format error", "required":{"token": "token for the logged in user"}});
+      return;
+    }
+    getPermission(req.body.token).then(function(value){
+      if(value == 0){
+        res.status(400).json({"message": "Not Aurthorized for this request"});
+        return;
       }
-      else{
-        // TODO: Add checks whether a removed user already existed
-        var response = {
-          "message": "User Activted"
-        };
-        res.status(200).json(response);
-      }
+      var user_id = req.params.user_id;
+      var deactivateUser = "UPDATE users SET active = 1 WHERE user_id = ?";
+      var parameters = [user_id];
+      con.query(deactivateUser, parameters, function(err, data){
+        if(err){
+          var response = {
+            "message": "Cannot activate user",
+            "error": err
+          };
+          res.status(400).json(response);
+        }
+        else{
+          // TODO: Add checks whether a removed user already existed
+          var response = {
+            "message": "User Activated"
+          };
+          res.status(200).json(response);
+        }
+      });
+    }).catch(function(){
+      res.status(400).json({"message": "No user with this this token is loggedIn"});
     });
 });
 
@@ -296,12 +318,12 @@ router.route("/accounts/login")
 
 router.route("/accounts/logout")
   .post(function (req, res){
-    if(!req.body.username || !req.body.token){
+    if(!req.body.token){
       res.status(400).json({"message": "Request Format Error", "required": logout});
     }
     else{
-      var logoutQuery = "UPDATE session SET ? WHERE username = ? AND token = ?"
-      con.query(logoutQuery, [{"token": "-1"}, req.body.username, req.body.token], function(err, data){
+      var logoutQuery = "UPDATE session SET ? WHERE token = ?"
+      con.query(logoutQuery, [{"token": "-1"}, req.body.token], function(err, data){
         if(err){
           var response = {
             "message": "Cannot Logout User, Check Credentials",
