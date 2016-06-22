@@ -73,7 +73,7 @@ var category = {
 var router = express.Router();
 
 //checks a valid token, returns -1 for invalid, 0 for normal user, 1 for admin
-function getPermission(token, callback){
+function getPermission2(token, callback){
   console.log(token);
   var checkAdmin = "SELECT * FROM users INNER JOIN session on users.username = session.username WHERE token = ?";
   var parameters = [token];
@@ -98,7 +98,9 @@ function getPermission(token, callback){
   });
 }
 
-function getPermission2(token){
+// A promise for checking the user authentication status and permission
+//0 - user is authenticated and is a normal user, 1 - user is authenticated and is an admin
+function getPermission(token){
   return new Promise(function(resolve, reject){
     console.log(token);
     var checkAdmin = "SELECT * FROM users INNER JOIN session on users.username = session.username WHERE token = ?";
@@ -106,19 +108,18 @@ function getPermission2(token){
     con.query(checkAdmin, parameters, function(err, data){
       if(err){
         console.log(err);
-        callback(-1);
+        reject(-1);
       }
       else{
         console.log(data);
         if(data.length == 0){
-          console.log("inside data length 0");
-          callback(-1);
+          reject(-1);
         }
         else{
           if(data[0].role == "admin")
-            callback(1);
+            resolve(1);
           else
-            callback(0);
+            resolve(0);
         }
       }
     });
@@ -135,8 +136,6 @@ router.use(function(req, res, next){
 router.get('/', function(req, res) {
     res.json({ message: 'Read Documentaion for API Usage' });
 });
-
-
 
 
 // ### Registration of a user
@@ -339,10 +338,13 @@ router.route("/accounts/users")
 //tesign routes
 router.route("/test/")
   .post(function(req, res){
-    var value = getPermission(req.body.token, function(data){
-      console.log(data);
-      res.json({"value": data});
-    });
+    getPermission2(req.body.token)
+      .then(function(value){
+        res.json({"status": value});
+      })
+      .catch(function(value) {
+        res.json({"message": "No user with this token"});
+      });
   });
 
 // ### Adding categories
