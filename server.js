@@ -10,10 +10,12 @@ var mv = require("node-mv");
 var fileUpload = require("express-fileupload");
 var path = require("path");
 
+
 //app instance
 var app = express();
 
 app.use(fileUpload());
+app.use(express.static('.'));
 
 //mysql connection object
 var con = mysql.createConnection({
@@ -133,15 +135,15 @@ router.route("/accounts/register")
     }
 
   });
-router.route("/accounts/remove/:user_id")
-  .post(function(req, res){
+router.route("/accounts/deactivate/:user_id")
+  .delete(function(req, res){
     var user_id = req.params.user_id;
     var deactivateUser = "UPDATE users SET active = 0 WHERE user_id = ?";
     var parameters = [user_id];
     con.query(deactivateUser, parameters, function(err, data){
       if(err){
         var response = {
-          "message": "Cannot remove user",
+          "message": "Cannot deactivate user",
           "error": err
         };
         res.status(400).json(response);
@@ -155,6 +157,76 @@ router.route("/accounts/remove/:user_id")
       }
     });
   });
+
+
+  router.route("/accounts/deactivate/")
+    .delete(function(req, res){
+      var user_id = req.query.user_id;
+      var deactivateUser = "UPDATE users SET active = 0 WHERE user_id = ?";
+      var parameters = [user_id];
+      con.query(deactivateUser, parameters, function(err, data){
+        if(err){
+          var response = {
+            "message": "Cannot deactivate user",
+            "error": err
+          };
+          res.status(400).json(response);
+        }
+        else{
+          // TODO: Add checks whether a removed user already existed
+          var response = {
+            "message": "User removed"
+          };
+          res.status(200).json(response);
+        }
+      });
+    });
+
+router.route("/accounts/activate/:user_id")
+  .post(function(req, res){
+    var user_id = req.params.user_id;
+    var deactivateUser = "UPDATE users SET active = 1 WHERE user_id = ?";
+    var parameters = [user_id];
+    con.query(deactivateUser, parameters, function(err, data){
+      if(err){
+        var response = {
+          "message": "Cannot activate user",
+          "error": err
+        };
+        res.status(400).json(response);
+      }
+      else{
+        // TODO: Add checks whether a removed user already existed
+        var response = {
+          "message": "User Activted"
+        };
+        res.status(200).json(response);
+      }
+    });
+});
+
+router.route("/accounts/activate/")
+  .post(function(req, res){
+    var user_id = req.query.user_id;
+    var deactivateUser = "UPDATE users SET active = 1 WHERE user_id = ?";
+    var parameters = [user_id];
+    con.query(deactivateUser, parameters, function(err, data){
+      if(err){
+        var response = {
+          "message": "Cannot activate user",
+          "error": err
+        };
+        res.status(400).json(response);
+      }
+      else{
+        // TODO: Add checks whether a removed user already existed
+        var response = {
+          "message": "User Activted"
+        };
+        res.status(200).json(response);
+      }
+    });
+});
 // ### logging In A User
 router.route("/accounts/login")
   .post(function (req, res){
@@ -354,9 +426,10 @@ router.route("/blogs/images")
       });
     }
     else{
-      blogImage = req.files.blogImage;
-      image_title = md5(new Date());
-      var url = "images/" +  image_title + ".jpeg";
+      var blogImage = req.files.blogImage;
+      var extension = req.files.blogImage.name.split(".")[1];
+      var image_title = md5(new Date());
+      var url = "images/" +  image_title + "." + extension;
       blogImage.mv(url, function(err){
         if (err) {
     			res.status(500).send(err);
@@ -387,10 +460,13 @@ router.route("/upload")
   		res.send('No files were uploaded.');
   		return;
   	}
-
+    console.log(req.files);
   	sampleFile = req.files.sampleFile;
-    console.log();
-  	sampleFile.mv('upload/a.jpeg', function(err) {
+    console.log(req.files.sampleFile);
+    var extension = (req.files.sampleFile.name).split(".")[1];
+    console.log(req.files.sampleFile.name);
+    console.log(extension);
+  	sampleFile.mv('upload/' + md5(new Date()) + "." + extension, function(err) {
   		if (err) {
   			res.status(500).send(err);
   		}
