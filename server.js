@@ -18,20 +18,25 @@ app.use(fileUpload());
 app.use(express.static('.'));
 
 //mysql connection object
+var data = fs.readFileSync("./config.json");
+mysqlData = JSON.parse(data).mysql;
+//console.log(mysqlData);
+
 var con = mysql.createConnection({
-  "host": "localhost",
-  "user": "root",
-  "password": "root",
+  "host": mysqlData.host,
+  "user": mysqlData.user,
+  "password": mysqlData.password,
   "database": "blog"
 });
 
+//middleware for body parser - helps in getting req.body variables
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 
 //Cross origin scripting access
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Token");
   res.header('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS');
   next();
 });
@@ -52,7 +57,6 @@ var login = {
 }
 
 var logout = {
-  "username": "user name of the user",
   "token": "authentication token"
 }
 
@@ -69,59 +73,58 @@ var category = {
   "category_details": "Details of the category"
 };
 
+var authToken = {
+  "TOKEN": "Send token in the header for the request"
+};
 //Router for the app
 var router = express.Router();
 
-//checks a valid token, returns -1 for invalid, 0 for normal user, 1 for admin
-function getPermission(token, callback){
-  console.log(token);
-  var checkAdmin = "SELECT * FROM users INNER JOIN session on users.username = session.username WHERE token = ?";
+//Authentication Middleware, for authenticating the user - also checks for token format errors
+//if user is authenticated, userRole = user or userRole = admin, based on their roles
+function authenticate(req, res, next){
+
+  if(!req.get("token")){
+    var response = {
+      "message": "request format error",
+      "required": authToken
+    };
+    res.status(400).json(response);
+    return;
+  }
+
+  var token = req.get("token");
+  var auth = "SELECT * from users INNER JOIN session ON users.username = session.username WHERE token = ?";
   var parameters = [token];
-  con.query(checkAdmin, parameters, function(err, data){
+  con.query(auth, parameters, function(err, data){
     if(err){
-      console.log(err);
-      callback(-1);
+      var response = {
+        "message": "Authentication Error",
+        "err": err
+      };
+      res.status(400).json(response);
+      return;
     }
     else{
-      console.log(data);
-      if(data.length == 0){
-        console.log("inside data length 0");
-        callback(-1);
+      if(data.length == 0){         //no user with this token is loggedIn
+        var response = {
+          "message": "No user with this token!"
+        };
+        res.status(400).json(response);
+        return;
       }
       else{
-        if(data[0].role == "admin")
-          callback(1);
-        else
-          callback(0);
-      }
-    }
-  });
-}
-
-function getPermission2(token){
-  return new Promise(function(resolve, reject){
-    console.log(token);
-    var checkAdmin = "SELECT * FROM users INNER JOIN session on users.username = session.username WHERE token = ?";
-    var parameters = [token];
-    con.query(checkAdmin, parameters, function(err, data){
-      if(err){
-        console.log(err);
-        callback(-1);
-      }
-      else{
-        console.log(data);
-        if(data.length == 0){
-          console.log("inside data length 0");
-          callback(-1);
+      //  console.log(data);
+        if(data[0].role == "admin"){
+          req.userRole = "admin";
         }
         else{
-          if(data[0].role == "admin")
-            callback(1);
-          else
-            callback(0);
+          req.userRole = "user";
         }
+
+        //res.json({"role": req.userRole});
+        return next();
       }
-    });
+    }
   });
 }
 
@@ -135,8 +138,6 @@ router.use(function(req, res, next){
 router.get('/', function(req, res) {
     res.json({ message: 'Read Documentaion for API Usage' });
 });
-
-
 
 
 // ### Registration of a user
@@ -164,9 +165,14 @@ router.route("/accounts/register")
     }
 
   });
-router.route("/accounts/deactivate/:user_id")
-  .delete(function(req, res){
 
+// ### Activating and Deactivating a user
+router.route("/accounts/deactivate/:user_id")
+  .delete(authenticate, function(req, res){
+    if(req.userRole == "user"){
+      res.status(400).json({"message": "Not Aurthorized for this request"});
+      return;
+    }
     var user_id = req.params.user_id;
     var deactivateUser = "UPDATE users SET active = 0 WHERE user_id = ?";
     var parameters = [user_id];
@@ -188,32 +194,12 @@ router.route("/accounts/deactivate/:user_id")
     });
   });
 
-
-  router.route("/accounts/deactivate/")
-    .delete(function(req, res){
-      var user_id = req.query.user_id;
-      var deactivateUser = "UPDATE users SET active = 0 WHERE user_id = ?";
-      var parameters = [user_id];
-      con.query(deactivateUser, parameters, function(err, data){
-        if(err){
-          var response = {
-            "message": "Cannot deactivate user",
-            "error": err
-          };
-          res.status(400).json(response);
-        }
-        else{
-          // TODO: Add checks whether a removed user already existed
-          var response = {
-            "message": "User removed"
-          };
-          res.status(200).json(response);
-        }
-      });
-    });
-
 router.route("/accounts/activate/:user_id")
-  .post(function(req, res){
+  .post(authenticate, function(req, res){
+    if(req.userRole == "user"){
+      res.status(400).json({"message": "Not Aurthorized for this request"});
+      return;
+    }
     var user_id = req.params.user_id;
     var deactivateUser = "UPDATE users SET active = 1 WHERE user_id = ?";
     var parameters = [user_id];
@@ -228,36 +214,14 @@ router.route("/accounts/activate/:user_id")
       else{
         // TODO: Add checks whether a removed user already existed
         var response = {
-          "message": "User Activted"
+          "message": "User Activated"
         };
         res.status(200).json(response);
       }
     });
 });
 
-router.route("/accounts/activate/")
-  .post(function(req, res){
-    var user_id = req.query.user_id;
-    var deactivateUser = "UPDATE users SET active = 1 WHERE user_id = ?";
-    var parameters = [user_id];
-    con.query(deactivateUser, parameters, function(err, data){
-      if(err){
-        var response = {
-          "message": "Cannot activate user",
-          "error": err
-        };
-        res.status(400).json(response);
-      }
-      else{
-        // TODO: Add checks whether a removed user already existed
-        var response = {
-          "message": "User Activted"
-        };
-        res.status(200).json(response);
-      }
-    });
-});
-// ### logging In A User
+// ### Logging In and Logging Out a user
 router.route("/accounts/login")
   .post(function (req, res){
     if(!req.body.username || !req.body.password){
@@ -265,7 +229,7 @@ router.route("/accounts/login")
     }
     else{
       var data = [req.body.username, md5(req.body.password)];
-      var loginQuery = "SELECT * FROM users WHERE username = ? AND password = ?";
+      var loginQuery = "SELECT * FROM users WHERE username = ? AND password = ? AND active = 1";
       con.query(loginQuery, data, function(err, data){
         if(err){
           var response = {
@@ -296,13 +260,9 @@ router.route("/accounts/login")
   //loggin out a user
 
 router.route("/accounts/logout")
-  .post(function (req, res){
-    if(!req.body.username || !req.body.token){
-      res.status(400).json({"message": "Request Format Error", "required": logout});
-    }
-    else{
-      var logoutQuery = "UPDATE session SET ? WHERE username = ? AND token = ?"
-      con.query(logoutQuery, [{"token": "-1"}, req.body.username, req.body.token], function(err, data){
+  .post(authenticate, function (req, res){
+      var logoutQuery = "UPDATE session SET ? WHERE token = ?"
+      con.query(logoutQuery, [{"token": "-1"}, req.get("token")], function(err, data){
         if(err){
           var response = {
             "message": "Cannot Logout User, Check Credentials",
@@ -314,10 +274,10 @@ router.route("/accounts/logout")
           res.status(200).json({"message": "Successfully Logged Out", "data": data});
         }
       });
-
-    }
   });
 
+// ### Getting a list of all the users
+// TODO: Add permissions, different responses for admin and normal user
 router.route("/accounts/users")
   .get(function(req, res){
     var allUsers = "SELECT user_id, username, email, active, role, time_of_registration FROM users";
@@ -338,16 +298,19 @@ router.route("/accounts/users")
 
 //tesign routes
 router.route("/test/")
-  .post(function(req, res){
-    var value = getPermission(req.body.token, function(data){
-      console.log(data);
-      res.json({"value": data});
-    });
+  .post(authenticate, function(req, res){
+    getPermission2(req.get("token"))
+      .then(function(value){
+        res.json({"status": value});
+      })
+      .catch(function(value) {
+        res.json({"message": "No user with this token"});
+      });
   });
 
-// ### Adding categories
+// ### Adding categories and listing categories
 router.route("/blogs/categories")
-  .post(function(req, res){
+  .post(authenticate, function(req, res){
     if(!req.body.category_name || !req.body.category_details){
       res.status(400).json({"message": "Request Format Error", "required": category});
     }
@@ -368,7 +331,7 @@ router.route("/blogs/categories")
       });
     }
   })
-  .get(function(req, res){
+  .get(authenticate, function(req, res){
     var allCategories = "SELECT * FROM categories";
     con.query(allCategories, function(err, data){
       if(err){
@@ -383,9 +346,11 @@ router.route("/blogs/categories")
       }
     });
   });
-// ##### ADDING NEW BLOGS ####
+
+// ### Adding and listing all the blogs
+// TODO: Add permissions, different responses adn filters for different roles
 router.route("/blogs")
-  .post(function(req, res){
+  .post(authenticate, function(req, res){
     if(!req.body.blog_title || !req.body.blog_body || !req.body.category_id || !req.body.user_id){
       res.status(400).json({"message": "Request Format Error", "required": blog});
     }
@@ -414,7 +379,7 @@ router.route("/blogs")
       });
     }
   })
-  .get(function(req, res){
+  .get(authenticate, function(req, res){
     //allowed filter => user_id, published, category_id
     var getBlogs = "SELECT * FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id";
     if(Object.keys(req.query).length > 0){
@@ -450,8 +415,10 @@ router.route("/blogs")
     });
   });
 
+// ### Getting the details of a blog
+// TODO: Add permissions
 router.route("/blogs/:blog_id")
-  .get(function(req, res){
+  .get(authenticate, function(req, res){
     var blog_id = req.params.blog_id;
     var getBlogDetails = "SELECT * FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ?";
     var parameters = [blog_id];
@@ -478,7 +445,7 @@ router.route("/blogs/:blog_id")
   });
 
 router.route("/blogs/images")
-  .post(function(req, res){
+  .post(authenticate, function(req, res){
     var blogImage;
     if(!req.query.blog_id){
       res.status(400).json({"message": "Bad request!"});
@@ -552,8 +519,14 @@ router.route("/upload")
   	});
   });
 
+// ### Publishing and Depublishing a blog
 router.route("/blogs/publish/:blog_id")
-  .post(function(req, res){
+  .post(authenticate, function(req, res){
+    if(req.userRole == "user"){
+      res.status(400).json({"message": "Not Aurthorized for this request!"});
+      return;
+    }
+
     var blog_id = req.params.blog_id;
     var publishBlog = "UPDATE blogs SET published = 1, published_date = NOW() WHERE blog_id = ?";
     var parameters = [blog_id];
@@ -577,10 +550,16 @@ router.route("/blogs/publish/:blog_id")
         res.json(data);
       }
     });
+
   });
 
 router.route("/blogs/depublish/:blog_id")
-  .post(function(req, res){
+  .post(authenticate, function(req, res){
+    if(req.userRole == "user"){
+      req.status(400).json({"message": "Not Aurthorized for this Request"});
+      return;
+    }
+
     var blog_id = req.params.blog_id;
     var publishBlog = "UPDATE blogs SET published = 0, published_date = NOW() WHERE blog_id = ?";
     var parameters = [blog_id];
@@ -605,6 +584,7 @@ router.route("/blogs/depublish/:blog_id")
       }
     });
   });
+
 //all the endpoints will be prefixed with /api/
 app.use("/api", router);
 
