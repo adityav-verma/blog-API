@@ -32,7 +32,7 @@ app.use(bodyParser.json());
 //Cross origin scripting access
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Token");
   res.header('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS');
   next();
 });
@@ -70,7 +70,7 @@ var category = {
 };
 
 var authToken = {
-  "token": "token for the requesting user"
+  "TOKEN": "Send token in the header for the request"
 };
 //Router for the app
 var router = express.Router();
@@ -79,7 +79,7 @@ var router = express.Router();
 //if user is authenticated, userRole = user or userRole = admin, based on their roles
 function authenticate(req, res, next){
 
-  if(!req.body.token){
+  if(!req.get("token")){
     var response = {
       "message": "request format error",
       "required": authToken
@@ -88,7 +88,7 @@ function authenticate(req, res, next){
     return;
   }
 
-  var token = req.body.token;
+  var token = req.get("token");
   var auth = "SELECT * from users INNER JOIN session ON users.username = session.username WHERE token = ?";
   var parameters = [token];
   con.query(auth, parameters, function(err, data){
@@ -258,7 +258,7 @@ router.route("/accounts/login")
 router.route("/accounts/logout")
   .post(authenticate, function (req, res){
       var logoutQuery = "UPDATE session SET ? WHERE token = ?"
-      con.query(logoutQuery, [{"token": "-1"}, req.body.token], function(err, data){
+      con.query(logoutQuery, [{"token": "-1"}, req.get("token")], function(err, data){
         if(err){
           var response = {
             "message": "Cannot Logout User, Check Credentials",
@@ -295,7 +295,7 @@ router.route("/accounts/users")
 //tesign routes
 router.route("/test/")
   .post(authenticate, function(req, res){
-    getPermission2(req.body.token)
+    getPermission2(req.get("token"))
       .then(function(value){
         res.json({"status": value});
       })
