@@ -73,26 +73,55 @@ var category = {
 var router = express.Router();
 
 //checks a valid token, returns -1 for invalid, 0 for normal user, 1 for admin
-function isAdmin(token, callback){
+function getPermission(token, callback){
   console.log(token);
-  var checkAdmin = "SELECT * FROM users INNER JOIN session on users.user_id = session.session_id WHERE token = ?";
+  var checkAdmin = "SELECT * FROM users INNER JOIN session on users.username = session.username WHERE token = ?";
   var parameters = [token];
   con.query(checkAdmin, parameters, function(err, data){
     if(err){
+      console.log(err);
       callback(-1);
     }
     else{
+      console.log(data);
       if(data.length == 0){
         console.log("inside data length 0");
         callback(-1);
       }
       else{
-        if(data.role == "admin")
+        if(data[0].role == "admin")
           callback(1);
         else
           callback(0);
       }
     }
+  });
+}
+
+function getPermission2(token){
+  return new Promise(function(resolve, reject){
+    console.log(token);
+    var checkAdmin = "SELECT * FROM users INNER JOIN session on users.username = session.username WHERE token = ?";
+    var parameters = [token];
+    con.query(checkAdmin, parameters, function(err, data){
+      if(err){
+        console.log(err);
+        callback(-1);
+      }
+      else{
+        console.log(data);
+        if(data.length == 0){
+          console.log("inside data length 0");
+          callback(-1);
+        }
+        else{
+          if(data[0].role == "admin")
+            callback(1);
+          else
+            callback(0);
+        }
+      }
+    });
   });
 }
 
@@ -137,6 +166,7 @@ router.route("/accounts/register")
   });
 router.route("/accounts/deactivate/:user_id")
   .delete(function(req, res){
+
     var user_id = req.params.user_id;
     var deactivateUser = "UPDATE users SET active = 0 WHERE user_id = ?";
     var parameters = [user_id];
@@ -309,7 +339,7 @@ router.route("/accounts/users")
 //tesign routes
 router.route("/test/")
   .post(function(req, res){
-    var value = isAdmin(req.body.token, function(data){
+    var value = getPermission(req.body.token, function(data){
       console.log(data);
       res.json({"value": data});
     });
@@ -385,8 +415,27 @@ router.route("/blogs")
     }
   })
   .get(function(req, res){
-    //var getBlogs = "SELECT * FROM blogs INNER JOIN blogs_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id";
+    //allowed filter => user_id, published, category_id
     var getBlogs = "SELECT * FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id";
+    if(Object.keys(req.query).length > 0){
+      getBlogs = getBlogs + " WHERE ";
+      for(var key in req.query){
+        var filter = "";
+        if(key == 'user_id'){
+          filter  = " users.user_id=" + req.query[key] + " AND ";
+        }
+        else if(key == "published"){
+          filter = " blogs.published=" + req.query[key] + " AND ";
+        }
+        else if(key == "category_id"){
+          filter = " categories.category_id=" + req.query[key] + " AND ";
+        }
+        getBlogs = getBlogs + filter;
+      }
+      getBlogs = getBlogs + "1";
+    }
+
+    console.log(getBlogs);
     con.query(getBlogs, function(err, data){
       if(err){
         var response = {
@@ -397,6 +446,33 @@ router.route("/blogs")
       }
       else{
         res.json(data);
+      }
+    });
+  });
+
+router.route("/blogs/:blog_id")
+  .get(function(req, res){
+    var blog_id = req.params.blog_id;
+    var getBlogDetails = "SELECT * FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ?";
+    var parameters = [blog_id];
+    con.query(getBlogDetails, parameters, function(err, data){
+      if(err){
+        var response = {
+          "message": "Cannot get blog details",
+          "error": err
+        };
+        res.status(400).json(response);
+      }
+      else{
+        if(data.length == 0){
+          var response = {
+            "message" : "No blogs with this id"
+          };
+          res.status(200).json(response);
+        }
+        else{
+          res.status(200).json(data[0]);
+        }
       }
     });
   });
