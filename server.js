@@ -18,10 +18,14 @@ app.use(fileUpload());
 app.use(express.static('.'));
 
 //mysql connection object
+var data = fs.readFileSync("./config.json");
+mysqlData = JSON.parse(data).mysql;
+//console.log(mysqlData);
+
 var con = mysql.createConnection({
-  "host": "localhost",
-  "user": "root",
-  "password": "root",
+  "host": mysqlData.host,
+  "user": mysqlData.user,
+  "password": mysqlData.password,
   "database": "blog"
 });
 
