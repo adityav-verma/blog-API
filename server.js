@@ -1,4 +1,4 @@
-//main file for api calls
+ //main file for api calls
 
 //importing the necessary modules
 var express = require("express");
@@ -277,9 +277,16 @@ router.route("/accounts/logout")
   });
 
 // ### Getting a list of all the users
-// TODO: Add permissions, different responses for admin and normal user
+//permissions, different responses for admin and normal user
 router.route("/accounts/users")
-  .get(function(req, res){
+  .get(authenticate, function(req, res){
+    if(req.userRole == "user"){
+      var response = {
+        "message": "Not Aurthorized for this request!"
+      };
+      res.status(400).json(response);
+      return;
+    }
     var allUsers = "SELECT user_id, username, email, active, role, time_of_registration FROM users";
     con.query(allUsers, function(err, data){
       if(err){
@@ -348,7 +355,7 @@ router.route("/blogs/categories")
   });
 
 // ### Adding and listing all the blogs
-// TODO: Add permissions, different responses adn filters for different roles
+//permissions, different responses and filters for different roles
 router.route("/blogs")
   .post(authenticate, function(req, res){
     if(!req.body.blog_title || !req.body.blog_body || !req.body.category_id || !req.body.user_id){
@@ -381,15 +388,21 @@ router.route("/blogs")
   })
   .get(authenticate, function(req, res){
     //allowed filter => user_id, published, category_id
-    var getBlogs = "SELECT * FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id";
+    var getBlogs = "";
+    if(req.userRole == "user"){
+      getBlogs = "SELECT * FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE blogs.published=1 AND ";
+    }
+    else if(req.userRole == "admin"){
+      getBlogs = "SELECT * FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE 1 AND ";
+    }
     if(Object.keys(req.query).length > 0){
-      getBlogs = getBlogs + " WHERE ";
+      // getBlogs = getBlogs + " WHERE ";
       for(var key in req.query){
         var filter = "";
-        if(key == 'user_id'){
+        if(key == 'user_id' && req.userRole == "admin"){
           filter  = " users.user_id=" + req.query[key] + " AND ";
         }
-        else if(key == "published"){
+        else if(key == "published" && req.userRole == "admin"){
           filter = " blogs.published=" + req.query[key] + " AND ";
         }
         else if(key == "category_id"){
@@ -397,9 +410,9 @@ router.route("/blogs")
         }
         getBlogs = getBlogs + filter;
       }
-      getBlogs = getBlogs + "1";
-    }
 
+    }
+    getBlogs = getBlogs + "1";
     console.log(getBlogs);
     con.query(getBlogs, function(err, data){
       if(err){
@@ -416,11 +429,17 @@ router.route("/blogs")
   });
 
 // ### Getting the details of a blog
-// TODO: Add permissions
+// A normal user cannot get an unpublished blog
 router.route("/blogs/:blog_id")
   .get(authenticate, function(req, res){
     var blog_id = req.params.blog_id;
-    var getBlogDetails = "SELECT * FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ?";
+    var getBlogDetails = "";
+    if(req.userRole == "user"){
+      getBlogDetails = "SELECT * FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ? AND blogs.published=1";
+    }
+    else{
+      "SELECT * FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ?";
+    }
     var parameters = [blog_id];
     con.query(getBlogDetails, parameters, function(err, data){
       if(err){
