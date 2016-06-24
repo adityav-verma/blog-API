@@ -9,6 +9,7 @@ var fs = require("fs");
 var mv = require("node-mv");
 var fileUpload = require("express-fileupload");
 var path = require("path");
+var sha = require("sha256");
 
 
 //app instance
@@ -19,13 +20,16 @@ app.use(express.static('.'));
 
 //mysql connection object
 var data = fs.readFileSync("./config.json");
-mysqlData = JSON.parse(data).mysql;
+mysqlConfig = JSON.parse(data).mysql;
+expressConfig = JSON.parse(data).express;
 //console.log(mysqlData);
 
-var con = mysql.createConnection({
-  "host": mysqlData.host,
-  "user": mysqlData.user,
-  "password": mysqlData.password,
+//Added Connection Pooling
+var con = mysql.createPool({
+  "connectionLimit": 100,
+  "host": mysqlConfig.host,
+  "user": mysqlConfig.user,
+  "password": mysqlConfig.password,
   "database": "blog"
 });
 
@@ -42,7 +46,7 @@ app.use(function(req, res, next) {
 });
 
 
-var port = process.env.PORT || 8085;
+var port = process.env.PORT || expressConfig.port;
 
 //basic objects formats
 var register = {
@@ -148,7 +152,7 @@ router.route("/accounts/register")
       res.status(400).json({"message": "Request Format Error", "required": register});
     }
     else{
-      var data = {"username":req.body.username, "password": md5(req.body.password), "email": req.body.email, "active": 1};
+      var data = {"username":req.body.username, "password": (md5(req.body.password)), "email": req.body.email, "active": 1};
       var registerQuery = "INSERT INTO users SET ?";
       con.query(registerQuery, data, function(err, data){
         if(err){
@@ -228,7 +232,8 @@ router.route("/accounts/login")
       res.status(400).json({"message": "Request Format Error", "required": login});
     }
     else{
-      var data = [req.body.username, md5(req.body.password)];
+      //password is md5
+      var data = [req.body.username, (md5(req.body.password))];
       var loginQuery = "SELECT * FROM users WHERE username = ? AND password = ? AND active = 1";
       con.query(loginQuery, data, function(err, data){
         if(err){
@@ -244,7 +249,8 @@ router.route("/accounts/login")
              res.status(400).json({"message": "No user with this username", "Data":data});
            }
            else{
-            var token = md5((new Date()) + req.body.password);
+             //token is date + password hashed with sha256
+            var token = sha((new Date()) + req.body.password);
 
             var saveToken = "INSERT INTO session SET ?";
             con.query(saveToken, {"username": req.body.username, "token": token});
@@ -373,15 +379,10 @@ router.route("/blogs")
           res.status(400).json(response);
         }
         else{
-          var getBlog = "SELECT * FROM blogs WHERE user_id = ? ORDER BY blog_id DESC LIMIT 1";
-          con.query(getBlog, [req.body.user_id], function(err, data){
-            if(err){
-              res.json(err);
-            }
-            else{
-              res.json(data[0]);
-            }
-          });
+          var response = {
+            "blog_id": data.insertId
+          };
+          res.status(201).json(response);
         }
       });
     }
@@ -395,6 +396,8 @@ router.route("/blogs")
     else if(req.userRole == "admin"){
       getBlogs = "SELECT * FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE 1 AND ";
     }
+
+    //building the filter query
     if(Object.keys(req.query).length > 0){
       // getBlogs = getBlogs + " WHERE ";
       for(var key in req.query){
@@ -413,7 +416,6 @@ router.route("/blogs")
 
     }
     getBlogs = getBlogs + "1";
-    console.log(getBlogs);
     con.query(getBlogs, function(err, data){
       if(err){
         var response = {
@@ -498,7 +500,7 @@ router.route("/blogs/images")
     		}
     		else {
           var addImage = "INSERT INTO blog_images SET ?";
-          console.log(blog_id);
+        //  console.log(blog_id);
           var data = {"blog_id": blog_id, "image_title": image_title, "image_path": url};
           con.query(addImage, data, function(err, data){
             if(err){
@@ -514,29 +516,29 @@ router.route("/blogs/images")
   })
 
 //tesing API for image upload
-router.route("/upload")
-  .post(function(req, res){
-    var sampleFile;
-
-  	if (!req.files) {
-  		res.send('No files were uploaded.');
-  		return;
-  	}
-    console.log(req.files);
-  	sampleFile = req.files.sampleFile;
-    console.log(req.files.sampleFile);
-    var extension = (req.files.sampleFile.name).split(".")[1];
-    console.log(req.files.sampleFile.name);
-    console.log(extension);
-  	sampleFile.mv('upload/' + md5(new Date()) + "." + extension, function(err) {
-  		if (err) {
-  			res.status(500).send(err);
-  		}
-  		else {
-  			res.send('File uploaded!');
-  		}
-  	});
-  });
+// router.route("/upload")
+//   .post(function(req, res){
+//     var sampleFile;
+//
+//   	if (!req.files) {
+//   		res.send('No files were uploaded.');
+//   		return;
+//   	}
+//     console.log(req.files);
+//   	sampleFile = req.files.sampleFile;
+//     console.log(req.files.sampleFile);
+//     var extension = (req.files.sampleFile.name).split(".")[1];
+//     console.log(req.files.sampleFile.name);
+//     console.log(extension);
+//   	sampleFile.mv('upload/' + md5(new Date()) + "." + extension, function(err) {
+//   		if (err) {
+//   			res.status(500).send(err);
+//   		}
+//   		else {
+//   			res.send('File uploaded!');
+//   		}
+//   	});
+//   });
 
 // ### Publishing and Depublishing a blog
 router.route("/blogs/publish/:blog_id")

@@ -3,5 +3,8 @@
     "user": "mysql user",
     "password": "mysql password",
     "host": "localhost or an IP"
+  },
+  "express":{
+    "port": "add port number without quotes"
   }
 }
