@@ -11,3 +11,6 @@ The following API is written to server as the backend for a blogging application
 * Publishing/Removing of blogs (Admin only task)
 * Activating and Deactivating Users
 * User permissions, different kind of users (Admin or User) get different response from the server
+
+## For full API Documentation
+http://docs.blogapi3.apiary.io/
