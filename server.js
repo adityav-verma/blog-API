@@ -277,7 +277,7 @@ router.route("/accounts/logout")
           res.status(400).json(response);
         }
         else{
-          res.status(200).json({"message": "Successfully Logged Out", "data": data});
+          res.status(200).json({"message": "Successfully Logged Out"});
         }
       });
   });
@@ -402,7 +402,7 @@ router.route("/blogs")
       // getBlogs = getBlogs + " WHERE ";
       for(var key in req.query){
         var filter = "";
-        if(key == 'user_id' && req.userRole == "admin"){
+        if(key == 'user_id'){
           filter  = " users.user_id=" + req.query[key] + " AND ";
         }
         else if(key == "published" && req.userRole == "admin"){
