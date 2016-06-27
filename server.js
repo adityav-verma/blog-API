@@ -112,9 +112,9 @@ router.get('/', function(req, res) {
 });
 
 // ### Adding accounts routes
-require("./accountsRoutes")(app, router, authenticate, con);
+require("./routes/accountsRoutes")(app, router, authenticate, con);
 
-require("./blogRoutes")(app, router, authenticate, con);
+require("./routes/blogRoutes")(app, router, authenticate, con);
 
 //all the endpoints will be prefixed with /api/
 app.use("/api", router);
