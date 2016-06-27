@@ -81,11 +81,16 @@ module.exports = function(app, router, authenticate, con){
     .get(authenticate, function(req, res){
       //allowed filter => user_id, published, category_id
       var getBlogs = "";
+      var selectParams = [];
       if(req.userRole == "user"){
-        getBlogs = "SELECT * FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE blogs.published=1 AND ";
+        selectParams = " blogs.blog_id, users.user_id, users.username, users.email, blogs.blog_body, blogs.blog_title, blog_images.image_title, blog_images.image_path, blogs.creation_date, categories.category_id, categories.category_name, categories.category_details ";
+        getBlogs = "SELECT" + selectParams + " FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE blogs.published=1 AND ";
+
       }
       else if(req.userRole == "admin"){
-        getBlogs = "SELECT * FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE 1 AND ";
+        selectParams = " blogs.blog_id, users.user_id, users.username, users.email, users.active, blogs.blog_body, blogs.blog_title, blogs.published, blog_images.image_title, blog_images.image_path, blogs.creation_date, categories.category_id, categories.category_name, categories.category_details ";
+        getBlogs = "SELECT" + selectParams + " FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE 1 AND ";
+
       }
 
       //building the filter query
@@ -269,6 +274,166 @@ module.exports = function(app, router, authenticate, con){
           // }
           res.json(data);
         }
+      });
+    });
+
+// Liking and Disliking a blog pot
+  router.route("/blogs/like/:blog_id")
+    .get(authenticate, function(req, res){
+      var blog_id = req.params.blog_id;
+      var user_id = req.userId;
+      var showLikes = "";
+      if(req.userRole == "user"){
+        showLikes = "SELECT users.user_id, username, email FROM users INNER JOIN likes ON users.user_id = likes.user_id WHERE blog_id = ?";
+      }
+      if(req.userRole == "admin"){
+        showLikes = "SELECT users.user_id, username, email FROM users INNER JOIN likes ON users.user_id = likes.user_id WHERE blog_id = ?";
+      }
+
+      var parameters = [blog_id];
+
+      con.query(showLikes, parameters, function(err, data){
+        if(err){
+          res.status(400).json(err);
+          return;
+        }
+
+        res.status(200).json(data);
+
+      });
+    })
+    .post(authenticate, function(req, res){
+      var blog_id = req.params.blog_id;
+      var user_id = req.userId;
+      var addLike = "INSERT INTO likes SET ?";
+      var parameters = [{"user_id": user_id, "blog_id": blog_id, "liked": 1}];
+      console.log(parameters);
+      con.query(addLike, parameters, function(err, data){
+        if(err){
+          res.status(400).json(err);
+          return;
+        }
+
+        var response = {
+          "message": "Successfully liked the blog"
+        };
+        res.status(201).json(response);
+
+      });
+    })
+
+    .delete(authenticate, function(req, res){
+      var blog_id = req.params.blog_id;
+      var user_id = req.userId;
+      var removeLike = "UPDATE likes SET ? WHERE user_id = ? AND blog_id = ?";
+      var parameters = [{"liked": 0}, user_id, blog_id];
+      console.log(parameters);
+      con.query(removeLike, parameters, function(err, data){
+        if(err){
+          var response = {
+            "message": "Cannot remove like",
+            "error": err
+          };
+          res.status(400).json(response);
+          return;
+        }
+
+        var response = {
+          "message": "Successfully Removed Like"
+        };
+        console.log(data);
+        res.status(200).json(response);
+
+      });
+    });
+
+  router.route("/blogs/comment/:blog_id")
+    .get(authenticate, function(req, res){
+      var blog_id = req.params.blog_id;
+      var user_id = req.userId;
+      var showComments = "";
+      if(req.userRole == "user"){
+        showLikes = "SELECT users.user_id, username, email, comment_id, comment FROM users INNER JOIN comments ON users.user_id = comments.user_id WHERE blog_id = ?";
+      }
+      if(req.userRole == "admin"){
+        showLikes = "SELECT users.user_id, username, email, comment_id, comment FROM users INNER JOIN comments ON users.user_id = comments.user_id WHERE blog_id = ?";
+      }
+
+      var parameters = [blog_id];
+
+      con.query(showLikes, parameters, function(err, data){
+        if(err){
+          res.status(400).json(err);
+          return;
+        }
+
+        res.status(200).json(data);
+
+      });
+    })
+    .post(authenticate, function(req, res){
+      if(!req.body.comment){
+        var response = {
+          "message": "Request Format Error",
+          "required": {
+            "comment": "comment of the user"
+          }
+        };
+        res.status(400).json(response);
+        return;
+      }
+      var blog_id = req.params.blog_id;
+      var user_id = req.userId;
+      var addLike = "INSERT INTO comments SET ?";
+      var parameters = [{"user_id": user_id, "blog_id": blog_id, "comment": req.body.comment}];
+      console.log(parameters);
+      con.query(addLike, parameters, function(err, data){
+        if(err){
+          res.status(400).json(err);
+          return;
+        }
+
+        var response = {
+          "message": "Successfully added Comment on the blog"
+        };
+        res.status(201).json(response);
+
+      });
+    })
+
+    .delete(authenticate, function(req, res){
+      if(!req.body.comment_id){
+        var response = {
+          "message": "Request Format Error",
+          "required": {
+            "comment_id": "id of the comment"
+          }
+        };
+
+        res.status(400).json(response);
+        return;
+      }
+      var blog_id = req.params.blog_id;
+      var user_id = req.userId;
+      var removeLike = "DELETE FROM comments WHERE comment_id = ?";
+      var parameters = [req.body.comment_id];
+      console.log(parameters);
+      con.query(removeLike, parameters, function(err, data){
+        if(err){
+          var response = {
+            "message": "Cannot remove comment",
+            "error": err
+          };
+          res.status(400).json(response);
+          return;
+        }
+
+        var response = {
+          "message": "Successfully Removed Comment"
+        };
+        console.log(data);
+        res.status(200).json(response);
+
       });
     });
 
