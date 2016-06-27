@@ -132,11 +132,14 @@ module.exports = function(app, router, authenticate, con){
     .get(authenticate, function(req, res){
       var blog_id = req.params.blog_id;
       var getBlogDetails = "";
+      selectParams = "";
       if(req.userRole == "user"){
-        getBlogDetails = "SELECT * FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ? AND blogs.published=1";
+        selectParams = " users.user_id, users.username, users.email, blogs.blog_id, blogs.blog_title, blogs.blog_body, categories.category_id, categories.category_name, categories.category_details, blog_images.image_title, blog_images.image_path ";
+        getBlogDetails = "SELECT" + selectParams + " FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ? AND blogs.published=1";
       }
       else{
-        getBlogDetails = "SELECT * FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ?";
+        selectParams = " users.user_id, users.username, users.email, users.active, users.role, blogs.creation_date, blogs.published, blogs.blog_id, blogs.blog_title, blogs.blog_body, categories.category_id, categories.category_name, categories.category_details, blog_images.image_title, blog_images.image_path ";
+        getBlogDetails = "SELECT " + selectParams  + " FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ?";
       }
       var parameters = [blog_id];
       con.query(getBlogDetails, parameters, function(err, data){
@@ -431,7 +434,6 @@ module.exports = function(app, router, authenticate, con){
         var response = {
           "message": "Successfully Removed Comment"
         };
-        console.log(data);
         res.status(200).json(response);
 
       });
