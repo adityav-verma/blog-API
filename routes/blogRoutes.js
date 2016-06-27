@@ -8,10 +8,13 @@ var mv = require("node-mv");
 var fileUpload = require("express-fileupload");
 var path = require("path");
 var sha = require("sha256");
+var im = require("imagemagick");
 
 var variables = require("./formatVariables");
 
 module.exports = function(app, router, authenticate, con){
+
+
   // ### Adding categories and listing categories
   router.route("/blogs/categories")
     .post(authenticate, function(req, res){
@@ -83,12 +86,12 @@ module.exports = function(app, router, authenticate, con){
       var getBlogs = "";
       var selectParams = [];
       if(req.userRole == "user"){
-        selectParams = " blogs.blog_id, users.user_id, users.username, users.email, blogs.blog_body, blogs.blog_title, blog_images.image_title, blog_images.image_path, blogs.creation_date, categories.category_id, categories.category_name, categories.category_details ";
+        selectParams = " blogs.blog_id, users.user_id, users.username, users.email, blogs.blog_body, blogs.blog_title, blog_images.image_title, blog_images.image_path, blog_images.image_path_small, blog_images.image_path_medium, blogs.creation_date, categories.category_id, categories.category_name, categories.category_details ";
         getBlogs = "SELECT" + selectParams + " FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE blogs.published=1 AND ";
 
       }
       else if(req.userRole == "admin"){
-        selectParams = " blogs.blog_id, users.user_id, users.username, users.email, users.active, blogs.blog_body, blogs.blog_title, blogs.published, blog_images.image_title, blog_images.image_path, blogs.creation_date, categories.category_id, categories.category_name, categories.category_details ";
+        selectParams = " blogs.blog_id, users.user_id, users.username, users.email, users.active, blogs.blog_body, blogs.blog_title, blogs.published, blog_images.image_title, blog_images.image_path, blog_images.image_path_small, blog_images.image_path_medium, blogs.creation_date, categories.category_id, categories.category_name, categories.category_details ";
         getBlogs = "SELECT" + selectParams + " FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE 1 AND ";
 
       }
@@ -134,11 +137,11 @@ module.exports = function(app, router, authenticate, con){
       var getBlogDetails = "";
       selectParams = "";
       if(req.userRole == "user"){
-        selectParams = " users.user_id, users.username, users.email, blogs.blog_id, blogs.blog_title, blogs.blog_body, categories.category_id, categories.category_name, categories.category_details, blog_images.image_title, blog_images.image_path ";
+        selectParams = " users.user_id, users.username, users.email, blogs.blog_id, blogs.blog_title, blogs.blog_body, categories.category_id, categories.category_name, categories.category_details, blog_images.image_title, blog_images.image_path, blog_images.image_path_small, blog_images.image_path_medium ";
         getBlogDetails = "SELECT" + selectParams + " FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ? AND blogs.published=1";
       }
       else{
-        selectParams = " users.user_id, users.username, users.email, users.active, users.role, blogs.creation_date, blogs.published, blogs.blog_id, blogs.blog_title, blogs.blog_body, categories.category_id, categories.category_name, categories.category_details, blog_images.image_title, blog_images.image_path ";
+        selectParams = " users.user_id, users.username, users.email, users.active, users.role, blogs.creation_date, blogs.published, blogs.blog_id, blogs.blog_title, blogs.blog_body, categories.category_id, categories.category_name, categories.category_details, blog_images.image_title, blog_images.image_path, blog_images.image_path_small, blog_images.image_path_medium ";
         getBlogDetails = "SELECT " + selectParams  + " FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ?";
       }
       var parameters = [blog_id];
@@ -165,7 +168,7 @@ module.exports = function(app, router, authenticate, con){
     });
 
   router.route("/blogs/images")
-    .post(authenticate, function(req, res){
+    .post(function(req, res){
       var blogImage;
       if(!req.query.blog_id){
         res.status(400).json({"message": "Bad request!"});
@@ -193,14 +196,46 @@ module.exports = function(app, router, authenticate, con){
         var extension = req.files.blogImage.name.split(".")[1];
         var image_title = md5(new Date());
         var url = "images/" +  image_title + "." + extension;
+        //var actual = "images/" + image_title + "_actual." + extension;
         blogImage.mv(url, function(err){
           if (err) {
       			res.status(500).send(err);
       		}
       		else {
+            //resizing image into different sizes
+            url_small = "images/" + image_title + "_small." + extension;
+            url_medium = "images/" + image_title + "_medium." + extension;
+
+            im.resize({
+              srcPath: url,
+              dstPath: url_small,
+              width:   256
+              } , function(err, stdout, stderr){
+              if (err){
+                console,log(err);
+              }
+              else{
+                console.log('resized to fit within 256x256px');
+              }
+            });
+            im.resize({
+              srcPath: url,
+              dstPath: url_medium,
+              width:   512
+              } , function(err, stdout, stderr){
+              if (err){
+                console.log(err);
+              }
+              else{
+                  console.log('resized to fit within 512x512px');
+              }
+
+            });
+            //resizing images done!
+
             var addImage = "INSERT INTO blog_images SET ?";
           //  console.log(blog_id);
-            var data = {"blog_id": blog_id, "image_title": image_title, "image_path": url};
+            var data = {"blog_id": blog_id, "image_title": image_title, "image_path": url, "image_path_small": url_small, "image_path_medium": url_medium};
             con.query(addImage, data, function(err, data){
               if(err){
                 res.json(err);
@@ -439,4 +474,57 @@ module.exports = function(app, router, authenticate, con){
       });
     });
 
+  router.route("/migration")
+    .post(function(req, res){
+      var q = "select * from blog_images";
+      con.query(q, function(err, data){
+        for(var i=0; i < data.length; i++){
+          var value = data[i];
+          var url = value.image_path;
+          var image_name = url.split(".")[0];
+          var extension = url.split(".")[1];
+          //resizing image into different sizes
+          url_small = image_name + "_small." + extension;
+          url_medium = image_name + "_medium." + extension;
+
+          im.resize({
+            srcPath: url,
+            dstPath: url_small,
+            width:   256
+            } , function(err, stdout, stderr){
+            if (err){
+              console.log(err);
+            }
+            else{
+              console.log('resized to fit within 256x256px');
+            }
+          });
+          im.resize({
+            srcPath: url,
+            dstPath: url_medium,
+            width:   512
+            } , function(err, stdout, stderr){
+            if (err){
+              console.log(err);
+            }
+            else{
+                console.log('resized to fit within 512x512px');
+            }
+
+          });
+          //resizing images done!
+
+          var insertQ = "UPDATE blog_images SET ? WHERE image_path = ?";
+          var para = [{"image_path_small": url_small, "image_path_medium": url_medium}, url];
+          con.query(insertQ, para, function(err, data){
+            if(err)
+              res.json(err);
+              return;
+
+          });
+
+        }
+        res.json("kam hogaya!");
+      });
+    });
 }
