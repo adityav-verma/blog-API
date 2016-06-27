@@ -48,6 +48,8 @@ CREATE TABLE blog_images(
   blog_id INT NOT NULL,
   image_title VARCHAR(255),
   image_path VARCHAR(255),
+  image_path_small VARCHAR(255),
+  image_path_medium VARCHAR(255),
   FOREIGN KEY (blog_id) REFERENCES blogs(blog_id)
 );
 
