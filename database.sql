@@ -50,3 +50,22 @@ CREATE TABLE blog_images(
   image_path VARCHAR(255),
   FOREIGN KEY (blog_id) REFERENCES blogs(blog_id)
 );
+
+CREATE TABLE likes(
+  user_id INT NOT NULL,
+  blog_id INT NOT NULL,
+  liked INT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(user_id),
+  FOREIGN KEY (blog_id) REFERENCES blogs(blog_id),
+  CONSTRAINT u_user_blog UNIQUE(user_id, blog_id)
+);
+
+CREATE TABLE comments(
+  comment_id INT AUTO_INCREMENT NOT NULL,
+  user_id INT NOT NULL,
+  blog_id INT NOT NULL,
+  comment TEXT NOT NULL,
+  PRIMARY KEY (comment_id),
+  FOREIGN KEY (user_id) REFERENCES users(user_id),
+  FOREIGN KEY (blog_id) REFERENCES blogs(blog_id)
+);

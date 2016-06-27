@@ -91,6 +91,7 @@ function authenticate(req, res, next){
         }
         else{
           req.userRole = "user";
+          req.userId = data[0].user_id;
         }
 
         //res.json({"role": req.userRole});
