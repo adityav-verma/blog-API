@@ -1,7 +1,12 @@
+#elastic search folder
+elasticSearch
+
 #dbBackup
 backUP.sql
+
 #config file
 config.json
+
 #uploaded images
 images
 upload

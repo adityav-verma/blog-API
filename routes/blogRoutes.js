@@ -87,12 +87,14 @@ module.exports = function(app, router, authenticate, con){
       var selectParams = [];
       if(req.userRole == "user"){
         selectParams = " blogs.blog_id, users.user_id, users.username, users.email, blogs.blog_body, blogs.blog_title, blog_images.image_title, blog_images.image_path, blog_images.image_path_small, blog_images.image_path_medium, blogs.creation_date, categories.category_id, categories.category_name, categories.category_details ";
-        getBlogs = "SELECT" + selectParams + " FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE blogs.published=1 AND ";
+        getBlogs = "select * from blog_images inner join (select categories.category_details, categories.category_name, BLDU.* from categories inner join (select users.username, users.email, BLD.* from users inner join (select * from blogs inner join (select X.*, Count(comment) as commentCount from comments right outer join (select blogs.blog_id as blog_likes_id, COUNT(liked) as likeCount from blogs left outer join likes on blogs.blog_id = likes.blog_id GROUP BY blogs.blog_id) X on X.blog_likes_id = comments.blog_id GROUP by X.blog_likes_id) BL on blogs.blog_id = BL.blog_likes_id) BLD on BLD.user_id = users.user_id) BLDU on BLDU.category_id = categories.category_id) BLDUC on BLDUC.blog_id = blog_images.blog_id WHERE published=1 AND ";
+        //getBlogs = "SELECT" + selectParams + " FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE blogs.published=1 AND ";
 
       }
       else if(req.userRole == "admin"){
         selectParams = " blogs.blog_id, users.user_id, users.username, users.email, users.active, blogs.blog_body, blogs.blog_title, blogs.published, blog_images.image_title, blog_images.image_path, blog_images.image_path_small, blog_images.image_path_medium, blogs.creation_date, categories.category_id, categories.category_name, categories.category_details ";
-        getBlogs = "SELECT" + selectParams + " FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE 1 AND ";
+        //getBlogs = "SELECT" + selectParams + " FROM blogs LEFT OUTER JOIN blog_images on blogs.blog_id = blog_images.blog_id INNER JOIN users on blogs.user_id = users.user_id INNER JOIN categories ON categories.category_id = blogs.category_id WHERE 1 AND ";
+        getBlogs = "select * from blog_images inner join (select categories.category_details, categories.category_name, BLDU.* from categories inner join (select users.username, users.email, BLD.* from users inner join (select * from blogs inner join (select X.*, Count(comment) as commentCount from comments right outer join (select blogs.blog_id as blog_likes_id, COUNT(liked) as likeCount from blogs left outer join likes on blogs.blog_id = likes.blog_id GROUP BY blogs.blog_id) X on X.blog_likes_id = comments.blog_id GROUP by X.blog_likes_id) BL on blogs.blog_id = BL.blog_likes_id) BLD on BLD.user_id = users.user_id) BLDU on BLDU.category_id = categories.category_id) BLDUC on BLDUC.blog_id = blog_images.blog_id WHERE 1 AND ";
 
       }
 
@@ -102,19 +104,22 @@ module.exports = function(app, router, authenticate, con){
         for(var key in req.query){
           var filter = "";
           if(key == 'user_id'){
-            filter  = " users.user_id=" + req.query[key] + " AND ";
+            filter  = " user_id=" + req.query[key] + " AND ";
           }
           else if(key == "published" && req.userRole == "admin"){
-            filter = " blogs.published=" + req.query[key] + " AND ";
+            filter = " published=" + req.query[key] + " AND ";
           }
           else if(key == "category_id"){
-            filter = " categories.category_id=" + req.query[key] + " AND ";
+            filter = " category_id=" + req.query[key] + " AND ";
           }
           getBlogs = getBlogs + filter;
         }
 
       }
       getBlogs = getBlogs + "1";
+
+      //console.log(getBlogs);
+
       con.query(getBlogs, function(err, data){
         if(err){
           var response = {
@@ -138,11 +143,11 @@ module.exports = function(app, router, authenticate, con){
       selectParams = "";
       if(req.userRole == "user"){
         selectParams = " users.user_id, users.username, users.email, blogs.blog_id, blogs.blog_title, blogs.blog_body, categories.category_id, categories.category_name, categories.category_details, blog_images.image_title, blog_images.image_path, blog_images.image_path_small, blog_images.image_path_medium ";
-        getBlogDetails = "SELECT" + selectParams + " FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ? AND blogs.published=1";
+        getBlogDetails = "select * from blog_images inner join (select categories.category_details, categories.category_name, BLDU.* from categories inner join (select users.username, users.email, BLD.* from users inner join (select * from blogs inner join (select X.*, Count(comment) as commentCount from comments right outer join (select blogs.blog_id as blog_likes_id, COUNT(liked) as likeCount from blogs left outer join likes on blogs.blog_id = likes.blog_id WHERE blogs.blog_id = ? GROUP BY blogs.blog_id) X on X.blog_likes_id = comments.blog_id GROUP by X.blog_likes_id) BL on blogs.blog_id = BL.blog_likes_id) BLD on BLD.user_id = users.user_id) BLDU on BLDU.category_id = categories.category_id) BLDUC on BLDUC.blog_id = blog_images.blog_id WHERE published=1";
       }
       else{
         selectParams = " users.user_id, users.username, users.email, users.active, users.role, blogs.creation_date, blogs.published, blogs.blog_id, blogs.blog_title, blogs.blog_body, categories.category_id, categories.category_name, categories.category_details, blog_images.image_title, blog_images.image_path, blog_images.image_path_small, blog_images.image_path_medium ";
-        getBlogDetails = "SELECT " + selectParams  + " FROM users INNER JOIN blogs ON users.user_id = blogs.user_id INNER JOIN categories ON blogs.category_id = categories.category_id INNER JOIN blog_images ON blogs.blog_id = blog_images.blog_id WHERE blogs.blog_id = ?";
+        getBlogDetails = "select * from blog_images inner join (select categories.category_details, categories.category_name, BLDU.* from categories inner join (select users.username, users.email, BLD.* from users inner join (select * from blogs inner join (select X.*, Count(comment) as commentCount from comments right outer join (select blogs.blog_id as blog_likes_id, COUNT(liked) as likeCount from blogs left outer join likes on blogs.blog_id = likes.blog_id WHERE blogs.blog_id = ? GROUP BY blogs.blog_id) X on X.blog_likes_id = comments.blog_id GROUP by X.blog_likes_id) BL on blogs.blog_id = BL.blog_likes_id) BLD on BLD.user_id = users.user_id) BLDU on BLDU.category_id = categories.category_id) BLDUC on BLDUC.blog_id = blog_images.blog_id";
       }
       var parameters = [blog_id];
       con.query(getBlogDetails, parameters, function(err, data){
@@ -363,8 +368,9 @@ module.exports = function(app, router, authenticate, con){
     .delete(authenticate, function(req, res){
       var blog_id = req.params.blog_id;
       var user_id = req.userId;
-      var removeLike = "UPDATE likes SET ? WHERE user_id = ? AND blog_id = ?";
-      var parameters = [{"liked": 0}, user_id, blog_id];
+      var removeLike = "DELETE FROM likes WHERE user_id = ? AND blog_id = ?";
+      //var removeLike = "UPDATE likes SET ? WHERE user_id = ? AND blog_id = ?";
+      var parameters = [user_id, blog_id];
       console.log(parameters);
       con.query(removeLike, parameters, function(err, data){
         if(err){
