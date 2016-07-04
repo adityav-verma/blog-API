@@ -7,7 +7,6 @@ var mysql = require("mysql");
 var fs = require("fs");
 var fileUpload = require("express-fileupload");
 
-
 //app instance
 var app = express();
 

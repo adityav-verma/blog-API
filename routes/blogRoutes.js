@@ -166,7 +166,6 @@ else if(key == "category_id"){
 
 	router.route("/blogs/images")
 .post(function(req, res){
-	var blogImage;
 	if(!req.query.blog_id){
 		res.status(400).json({"message": "Bad request!"});
 		return;
@@ -193,7 +192,7 @@ else if(key == "category_id"){
 		var image_title = md5(new Date());
 		var url = "images/" +  image_title + "." + extension;
 //var actual = "images/" + image_title + "_actual." + extension;
-		blogImage.mv(url, function(err){
+		req.files.blogImage.mv(url, function(err){
 			if (err) {
 				res.status(500).send(err);
 			}
