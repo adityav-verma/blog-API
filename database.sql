@@ -71,7 +71,3 @@ CREATE TABLE comments(
   FOREIGN KEY (user_id) REFERENCES users(user_id),
   FOREIGN KEY (blog_id) REFERENCES blogs(blog_id)
 );
-
-SELECT * from
-  (SELECT *
-    FROM ((users inner join blogs on users.user_id = blogs.user_id) B inner join categories on B.category_id = categories.category_id) V inner join blog_images V.blog_id = blog_images.blog_id) F

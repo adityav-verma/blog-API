@@ -88,6 +88,7 @@ function authenticate(req, res, next){
       //  console.log(data);
         if(data[0].role == "admin"){
           req.userRole = "admin";
+          req.userId = data[0].user_id;
         }
         else{
           req.userRole = "user";

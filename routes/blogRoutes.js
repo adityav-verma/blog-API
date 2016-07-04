@@ -15,6 +15,18 @@ var variables = require("./formatVariables");
 module.exports = function(app, router, authenticate, con){
 
 
+router.route("/blogs/public")
+  .get(function(req, res){
+    var query = "SELECT * FROM blogs inner join blog_images on blogs.blog_id = blog_images.blog_id WHERE published = 1 LIMIT 10";
+    con.query(query, function(err, data){
+      if(err){
+        res.status(400).json(err);
+        return;
+      }
+      res.status(200).json(data);
+    });
+  });
+
   // ### Adding categories and listing categories
   router.route("/blogs/categories")
     .post(authenticate, function(req, res){
@@ -117,8 +129,6 @@ module.exports = function(app, router, authenticate, con){
 
       }
       getBlogs = getBlogs + "1";
-
-      //console.log(getBlogs);
 
       con.query(getBlogs, function(err, data){
         if(err){
@@ -239,7 +249,6 @@ module.exports = function(app, router, authenticate, con){
             //resizing images done!
 
             var addImage = "INSERT INTO blog_images SET ?";
-          //  console.log(blog_id);
             var data = {"blog_id": blog_id, "image_title": image_title, "image_path": url, "image_path_small": url_small, "image_path_medium": url_medium};
             con.query(addImage, data, function(err, data){
               if(err){
@@ -350,7 +359,6 @@ module.exports = function(app, router, authenticate, con){
       var user_id = req.userId;
       var addLike = "INSERT INTO likes SET ?";
       var parameters = [{"user_id": user_id, "blog_id": blog_id, "liked": 1}];
-      console.log(parameters);
       con.query(addLike, parameters, function(err, data){
         if(err){
           res.status(400).json(err);
@@ -371,7 +379,6 @@ module.exports = function(app, router, authenticate, con){
       var removeLike = "DELETE FROM likes WHERE user_id = ? AND blog_id = ?";
       //var removeLike = "UPDATE likes SET ? WHERE user_id = ? AND blog_id = ?";
       var parameters = [user_id, blog_id];
-      console.log(parameters);
       con.query(removeLike, parameters, function(err, data){
         if(err){
           var response = {
@@ -385,7 +392,6 @@ module.exports = function(app, router, authenticate, con){
         var response = {
           "message": "Successfully Removed Like"
         };
-        console.log(data);
         res.status(200).json(response);
 
       });
@@ -430,7 +436,6 @@ module.exports = function(app, router, authenticate, con){
       var user_id = req.userId;
       var addLike = "INSERT INTO comments SET ?";
       var parameters = [{"user_id": user_id, "blog_id": blog_id, "comment": req.body.comment}];
-      console.log(parameters);
       con.query(addLike, parameters, function(err, data){
         if(err){
           res.status(400).json(err);
@@ -461,7 +466,6 @@ module.exports = function(app, router, authenticate, con){
       var user_id = req.userId;
       var removeLike = "DELETE FROM comments WHERE comment_id = ?";
       var parameters = [req.body.comment_id];
-      console.log(parameters);
       con.query(removeLike, parameters, function(err, data){
         if(err){
           var response = {
