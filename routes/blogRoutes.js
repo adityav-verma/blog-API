@@ -15,17 +15,17 @@ var variables = require("./formatVariables");
 module.exports = function(app, router, authenticate, con){
 
 
-router.route("/blogs/public")
-  .get(function(req, res){
-    var query = "SELECT * FROM blogs inner join blog_images on blogs.blog_id = blog_images.blog_id WHERE published = 1 LIMIT 10";
-    con.query(query, function(err, data){
-      if(err){
-        res.status(400).json(err);
-        return;
-      }
-      res.status(200).json(data);
+  router.route("/blogs/public")
+    .get(function(req, res){
+      var query = "SELECT * FROM blogs inner join blog_images on blogs.blog_id = blog_images.blog_id WHERE published = 1 LIMIT 10";
+      con.query(query, function(err, data){
+        if(err){
+          res.status(400).json(err);
+          return;
+        }
+        res.status(200).json(data);
+      });
     });
-  });
 
   // ### Adding categories and listing categories
   router.route("/blogs/categories")
