@@ -8,8 +8,11 @@ The following API is written to server as the backend for a blogging application
   * Blog Title, Body
   * Category
   * Image associated with a blog
+* Likes on blogs
+* Comments on blogs
 * Publishing/Removing of blogs (Admin only task)
 * Activating and Deactivating Users
+* Admin management, add/remove admins
 * User permissions, different kind of users (Admin or User) get different response from the server
 
 ## For full API Documentation
