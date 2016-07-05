@@ -254,7 +254,7 @@ else if(key == "category_id"){
 	var blog_id = req.params.blog_id;
 	var publishBlog = "UPDATE blogs SET published = 1, published_date = NOW() WHERE blog_id = ?";
 	var parameters = [blog_id];
-	con.query(publishBlog, parameters, function(err, data){
+	con.query(publishBlog, parameters, function(err){
 		if(err){
 			var response = {
 				"message": "Cannot publish Blog",
@@ -271,7 +271,7 @@ else if(key == "category_id"){
 // else{
 //   res.satus(200).json({"message": "Blog Published", "data": data});
 // }
-			res.json(data);
+			res.status(200).json({"message": "Blog Published"});
 		}
 	});
 
@@ -287,7 +287,7 @@ else if(key == "category_id"){
 	var blog_id = req.params.blog_id;
 	var publishBlog = "UPDATE blogs SET published = 0, published_date = NOW() WHERE blog_id = ?";
 	var parameters = [blog_id];
-	con.query(publishBlog, parameters, function(err, data){
+	con.query(publishBlog, parameters, function(err){
 		if(err){
 			var response = {
 				"message": "Cannot De publish Blog",
@@ -304,7 +304,7 @@ else if(key == "category_id"){
 // else{
 //   res.satus(200).json({"message": "Blog Published", "data": data});
 // }
-			res.json(data);
+			res.status(200).json({"message": "Blog Depublished"});
 		}
 	});
 });
