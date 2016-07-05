@@ -96,7 +96,7 @@ module.exports = function(app, router, authenticate, con){
 	else{
 //password is md5
 		var data = [req.body.username, (md5(req.body.password))];
-		var loginQuery = "SELECT * FROM users WHERE username = ? AND password = ? AND active = 1";
+		var loginQuery = "SELECT user_id, username, email, active, time_of_registration, role FROM users WHERE username = ? AND password = ? AND active = 1";
 		con.query(loginQuery, data, function(err, data){
 			if(err){
 				var response = {
@@ -169,5 +169,52 @@ module.exports = function(app, router, authenticate, con){
 		}
 	});
 
+});
+
+	router.route("/accounts/admin/:user_id")
+.post(authenticate, function(req, res){
+	if(req.userRole == "user"){
+		var response = {
+			"message": "Not Aurthorized for this request!"
+		};
+		res.status(400).json(response);
+		return;
+	}
+	var addAdmin = "UPDATE users SET role='admin' WHERE user_id = ?";
+	con.query(addAdmin, function(err){
+		if(err){
+			var response = {
+				"message": "Cannot add to Admin",
+				"error": err
+			};
+			res.staus(400).json(response);
+		}
+		else{
+			res.status(200).json({"message": "Successfully added to Admin"});
+		}
+	});
+})
+
+.delete(authenticate, function(req, res){
+	if(req.userRole == "user"){
+		var response = {
+			"message": "Not Aurthorized for this request!"
+		};
+		res.status(400).json(response);
+		return;
+	}
+	var addAdmin = "UPDATE users SET role='user' WHERE user_id = ?";
+	con.query(addAdmin, function(err){
+		if(err){
+			var response = {
+				"message": "Cannot remove from Admin",
+				"error": err
+			};
+			res.staus(400).json(response);
+		}
+		else{
+			res.status(200).json({"message": "Successfully removed from Admin"});
+		}
+	});
 });
 };
