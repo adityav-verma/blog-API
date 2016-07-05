@@ -181,7 +181,8 @@ module.exports = function(app, router, authenticate, con){
 		return;
 	}
 	var addAdmin = "UPDATE users SET role='admin' WHERE user_id = ?";
-	con.query(addAdmin, function(err){
+	var parameters = [req.params.user_id];
+	con.query(addAdmin, parameters, function(err){
 		if(err){
 			var response = {
 				"message": "Cannot add to Admin",
@@ -204,7 +205,8 @@ module.exports = function(app, router, authenticate, con){
 		return;
 	}
 	var addAdmin = "UPDATE users SET role='user' WHERE user_id = ?";
-	con.query(addAdmin, function(err){
+	var parameters = [req.params.user_id];
+	con.query(addAdmin, parameters, function(err){
 		if(err){
 			var response = {
 				"message": "Cannot remove from Admin",
